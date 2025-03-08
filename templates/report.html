@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ report_type.capitalize() }} Detection Report</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f8f9fa;
+            text-align: center;
+            padding: 20px;
+        }
+        h1 {
+            color: #343a40;
+        }
+        .report-container {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .frame-box {
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 220px;
+        }
+        img {
+            width: 200px;
+            height: 200px;
+            border-radius: 5px;
+        }
+        .timestamp {
+            margin-top: 5px;
+            font-size: 14px;
+            color: #555;
+        }
+        .no-detection {
+            font-size: 18px;
+            color: red;
+            margin-top: 20px;
+        }
+        .back-button {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+        .enhance-button {
+            margin-top: 10px;
+            padding: 5px 10px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+  
+</head>
+<body>
+    <h1>{{ report_type.capitalize() }} Detection Report</h1>
+
+    {% if no_detection %}
+        <p class="no-detection">🚫 No {{ report_type.capitalize() }} Detected in the Video.</p>
+    {% else %}
+        <div class="report-container">
+            {% for frame, timestamp in frames_with_timestamps %}
+            <div class="frame-box">
+                <!-- Original Image -->
+                <img src="{{ url_for('static', filename=frame) }}" alt="Detected Frame" id="frame-{{ loop.index }}">
+                <p class="timestamp">Detected At: {{ timestamp }}</p>
+                
+                <!-- Enhance Image Button -->
+                <button class="enhance-button" 
+                        onclick="enhanceImage('{{ frame }}', '{{ report_type }}', 'frame-{{ loop.index }}')">
+                    Enhance Image
+                </button>
+
+                <!-- Enhanced Image (Initially Hidden) -->
+                <img src="" alt="Enhanced Frame" id="frame-{{ loop.index }}-enhanced" style="display: none; margin-top: 10px;">
+            </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <br>
+    <a href="{{ url_for('dashboard') }}" class="back-button">Back to Dashboard</a>
+
+    <script>
+       function enhanceImage(framePath, type, frameId) {
+    console.log("Original framePath:", framePath);
+
+    // Ensure the path does not have duplicate 'reports/'
+    if (framePath.includes("reports/reports/")) {
+        framePath = framePath.replace("reports/reports/", "reports/");
+    }
+    console.log("Corrected framePath:", framePath);
+
+    fetch('/enhance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ frame_name: framePath, frame_type: type })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.enhanced_image) {
+            alert("✅ Enhancement Successful!");
+            let enhancedImageElement = document.getElementById(frameId + "-enhanced");
+            enhancedImageElement.src = data.enhanced_image;
+            enhancedImageElement.style.display = "block";
+        } else {
+            alert("❌ Enhancement Failed!");
+        }
+    })
+    .catch(error => console.error("Error:", error));
+}
+
+    </script>
+
+</body>
+
+</html>

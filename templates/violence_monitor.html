@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Violence Detection</title>
+</head>
+<body>
+    <h1>Live Violence Detection</h1>
+    <img src="{{ url_for('violence_feed') }}" width="700px">
+    <br>
+
+    <br>
+<form action="{{ url_for('generate_report', report_type='violence') }}" method="POST">
+    <button type="submit">Generate Report</button>
+</form>
+<br>
+
+    <a href="{{ url_for('dashboard') }}">Back to Dashboard</a>
+</body>
+</html>
