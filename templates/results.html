@@ -4,84 +4,108 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Detection Results</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-  
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
-    <div class="container mt-4">
-        <h2 class="text-center">Detection Results</h2>
+    <div class="container">
+        <h1>Detection Results</h1>
 
-        <!-- Processed Video -->
-        <h4>Processed Video</h4>
-        <video width="600" controls>
-            <source src="{{ url_for('static', filename='processed/' + video_filename) }}" type="video/mp4">
-            Your browser does not support the video tag.
-        </video>
+        <!-- Summary Section -->
+        <div class="summary">
+            <p><strong>Processed Video:</strong> {{ video_name }}</p>
+            <p><strong>Processed Time:</strong> {{ processed_time }}</p>
+            <p><strong>Anomaly Detected:</strong> {{ "Yes" if "Weapon Detected" in detected_labels or "Violence" in detected_labels else "No" }}</p>
+        </div>
 
-        <!-- Detected Anomalies -->
-        <h4 class="mt-4">Detected Anomalies</h4>
-        {% if frames_with_timestamps %}
-            <ul class="list-unstyled">
-                {% for frame, timestamp, label in frames_with_timestamps %}
-                    <li class="mb-3">
-                        <strong>{{ label }}</strong> detected at <strong>{{ timestamp }}</strong><br>
-                        
-                        <!-- Original Image -->
-                        <img src="{{ url_for('static', filename=frame) }}" width="200" height="200" id="frame-{{ loop.index }}" alt="Detected Frame">
-                        
-                        <!-- Enhance Image Button -->
-                        <button class="btn btn-success btn-sm ms-2" 
-    onclick="enhanceImage('frame-{{ loop.index }}', '{{ frame }}')">
-    Enhance Image
-</button>
+        <!-- Detected Frames Section -->
+        <h2>Detected Anomalies</h2>
+        <div class="grid-container">
+            {% for frame, timestamp, label in frames %}
+            <div class="grid-item">
+                <img src="{{ url_for('static', filename=frame) }}" alt="Detected Frame">
+                <p><strong>{{ label }}</strong></p>
+                <p>Timestamp: {{ timestamp }}</p>
+                
+                <!-- Enhance Image Button -->
+                <form action="{{ url_for('enhance_image') }}" method="POST">
+                    <input type="hidden" name="image_path" value="{{ frame }}">
+                    <button type="submit" class="btn enhance-btn">Enhance Image</button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
 
-                        
-                        <!-- Enhanced Image (Initially Hidden) -->
-                        <img src="" width="200" height="200" id="frame-{{ loop.index }}-enhanced" style="display: none; margin-top: 10px;">
-                    </li>
-                {% endfor %}
-            </ul>
-        {% else %}
-            <p>No anomalies detected in this video.</p>
-        {% endif %}
-        
-        <a href="/" class="btn btn-primary mt-3">Go Back</a>
+        <!-- Actions -->
+        <div class="buttons">
+            <a href="{{ url_for('upload_video') }}" class="btn">Upload Another Video</a>
+            <button class="btn download-btn">Download Report</button>
+        </div>
     </div>
 
-    <script>
-       function enhanceImage(frameName, type) {
-    let correctFrameName;
-
-    if (type === "weapon") {
-        correctFrameName = "weapon_" + frameName + ".jpg"; // Convert "frame-1" → "weapon_frame-1.jpg"
-    } else if (type === "violence") {
-        correctFrameName = "violence_" + frameName + ".jpg"; // Convert "frame-1" → "violence_frame-1.jpg"
-    } else {
-        alert("Unknown frame type!");
-        return;
-    }
-
-    console.log("Enhancing Frame:", correctFrameName); // Debugging: Check in browser console
-
-    fetch('/enhance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ frame_name: correctFrameName })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.enhanced_image) {
-            alert("✅ Enhancement Successful: " + data.enhanced_image);
-            document.getElementById("enhancedImage").src = data.enhanced_image;
-        } else {
-            alert("❌ Enhancement Failed!");
+    <!-- CSS for styling -->
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            min-height: 100vh;
         }
-    })
-    .catch(error => console.error("Error:", error));
-}
-
-
-    </script>
-    
+        .container {
+            width: 80%;
+            max-width: 800px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        .summary {
+            background: #e8f0fe;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .grid-item {
+            background: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.1);
+        }
+        .grid-item img {
+            width: 100%;
+            border-radius: 5px;
+        }
+        .buttons {
+            margin-top: 20px;
+        }
+        .btn {
+            padding: 10px 15px;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            display: inline-block;
+            margin: 5px;
+            border: none;
+            cursor: pointer;
+        }
+        .download-btn {
+            background: #28a745;
+        }
+        .enhance-btn {
+            background: #ff9800;
+        }
+    </style>
 </body>
 </html>

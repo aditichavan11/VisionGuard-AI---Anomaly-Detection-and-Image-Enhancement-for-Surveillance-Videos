@@ -127,7 +127,7 @@ violence_detection_times = []  # Store timestamps of detections
 def generate_violence_frames():
     global violence_best_frames, violence_detection_times
 
-    cap = cv2.VideoCapture("static/sample_nonv.mp4")
+    cap = cv2.VideoCapture("static/sample_fight.mp4")
     frame_count = 0  
     non_violence_count = 0  # Track how many frames are non-violent
     total_frames = 0  # Count total frames processed
@@ -252,37 +252,36 @@ def upload_video():
             return "No file uploaded", 400
         
         video_file = request.files['video_file']
-        
         if video_file.filename == '':
             return "No selected file", 400
         
+        # Save uploaded video
         video_path = os.path.join(app.config['UPLOAD_FOLDER'], video_file.filename)
         video_file.save(video_path)
         
-        # Process video with both models
+        # Process the video (weapon + violence detection)
         processed_video_path, detected_frames, timestamps, detected_labels = process_video(video_path)
-        
+
+        # Redirect to results page, passing relevant info
         return redirect(url_for('show_results', 
                                 video_filename=os.path.basename(processed_video_path),
-                                detected_frames=detected_frames, 
-                                timestamps=timestamps, 
+                                detected_frames=detected_frames,
+                                timestamps=timestamps,
                                 detected_labels=detected_labels))
-
     return render_template('upload_video.html')
-
-
-
 
 @app.route('/show_results')
 def show_results():
+    """
+    This route receives the processed video filename and the list of 
+    detected frames, timestamps, and labels. Renders them in results.html.
+    """
     video_filename = request.args.get('video_filename')
-
-    # Get detected frames, timestamps, and labels
     detected_frames = request.args.getlist('detected_frames')
     timestamps = request.args.getlist('timestamps')
     detected_labels = request.args.getlist('detected_labels')
 
-    # Ensure all lists have the same length
+    # Zip them up so we can display them easily
     frames_with_timestamps = list(zip(detected_frames, timestamps, detected_labels))
 
     return render_template('results.html', 

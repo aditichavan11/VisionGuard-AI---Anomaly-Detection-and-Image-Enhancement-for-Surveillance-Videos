@@ -8,52 +8,42 @@
         body {
             font-family: Arial, sans-serif;
             background-color: #f8f9fa;
+            padding: 40px;
             text-align: center;
-            padding: 20px;
-        }
-        h1 {
-            color: #343a40;
         }
         .report-container {
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 20px;
-        }
-        .frame-box {
+            max-width: 800px;
+            margin: auto;
             background: white;
-            padding: 10px;
-            border-radius: 8px;
-            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.1);
+            text-align: left;
+        }
+        h1, h2 {
+            color: #343a40;
             text-align: center;
-            width: 220px;
         }
-        img {
-            width: 200px;
-            height: 200px;
-            border-radius: 5px;
+        .summary {
+            padding: 10px;
+            border-bottom: 2px solid #ddd;
+            margin-bottom: 20px;
         }
-        .timestamp {
-            margin-top: 5px;
-            font-size: 14px;
-            color: #555;
+        .detection-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
         }
-        .no-detection {
-            font-size: 18px;
-            color: red;
-            margin-top: 20px;
+        .detection-table th, .detection-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
         }
-        .back-button {
-            display: inline-block;
-            margin-top: 20px;
-            padding: 10px 15px;
+        .detection-table th {
             background-color: #007bff;
             color: white;
-            text-decoration: none;
-            border-radius: 5px;
         }
         .enhance-button {
-            margin-top: 10px;
             padding: 5px 10px;
             background-color: #28a745;
             color: white;
@@ -61,69 +51,90 @@
             border-radius: 5px;
             cursor: pointer;
         }
+        .no-detection {
+            font-size: 18px;
+            color: red;
+            text-align: center;
+            margin-top: 20px;
+        }
+        .back-button {
+            display: block;
+            width: fit-content;
+            margin: 20px auto;
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
     </style>
-  
 </head>
 <body>
-    <h1>{{ report_type.capitalize() }} Detection Report</h1>
-
-    {% if no_detection %}
-        <p class="no-detection">🚫 No {{ report_type.capitalize() }} Detected in the Video.</p>
-    {% else %}
-        <div class="report-container">
-            {% for frame, timestamp in frames_with_timestamps %}
-            <div class="frame-box">
-                <!-- Original Image -->
-                <img src="{{ url_for('static', filename=frame) }}" alt="Detected Frame" id="frame-{{ loop.index }}">
-                <p class="timestamp">Detected At: {{ timestamp }}</p>
-                
-                <!-- Enhance Image Button -->
-                <button class="enhance-button" 
-                        onclick="enhanceImage('{{ frame }}', '{{ report_type }}', 'frame-{{ loop.index }}')">
-                    Enhance Image
-                </button>
-
-                <!-- Enhanced Image (Initially Hidden) -->
-                <img src="" alt="Enhanced Frame" id="frame-{{ loop.index }}-enhanced" style="display: none; margin-top: 10px;">
-            </div>
-            {% endfor %}
+    <div class="report-container">
+        <h1>{{ report_type.capitalize() }} Detection Report</h1>
+        <div class="summary">
+            <p><strong>Report Type:</strong> {{ report_type.capitalize() }}</p>
+            <p><strong>Video Processed:</strong> {{ video_name }}</p>
+            <p><strong>Total Detections:</strong> {{ frames_with_timestamps|length }}</p>
         </div>
-    {% endif %}
 
-    <br>
-    <a href="{{ url_for('dashboard') }}" class="back-button">Back to Dashboard</a>
+        {% if no_detection %}
+            <p class="no-detection">🚫 No {{ report_type.capitalize() }} Detected in the Video.</p>
+        {% else %}
+            <table class="detection-table">
+                <tr>
+                    <th>Detected Frame</th>
+                    <th>Timestamp</th>
+                    <th>Enhance</th>
+                </tr>
+                {% for frame, timestamp in frames_with_timestamps %}
+                <tr>
+                    <td>
+                        <img src="{{ url_for('static', filename=frame) }}" alt="Detected Frame" width="120px" height="120px">
+                    </td>
+                    <td>{{ timestamp }}</td>
+                    <td>
+                        <button class="enhance-button" 
+                                onclick="enhanceImage('{{ frame }}', '{{ report_type }}', 'frame-{{ loop.index }}')">
+                            Enhance
+                        </button>
+                        <br>
+                        <img src="" alt="Enhanced Frame" id="frame-{{ loop.index }}-enhanced" 
+                             style="display: none; margin-top: 10px; width: 120px; height: 120px;">
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+        {% endif %}
+        
+        <a href="{{ url_for('dashboard') }}" class="back-button">Back to Dashboard</a>
+    </div>
 
     <script>
-       function enhanceImage(framePath, type, frameId) {
-    console.log("Original framePath:", framePath);
-
-    // Ensure the path does not have duplicate 'reports/'
-    if (framePath.includes("reports/reports/")) {
-        framePath = framePath.replace("reports/reports/", "reports/");
-    }
-    console.log("Corrected framePath:", framePath);
-
-    fetch('/enhance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ frame_name: framePath, frame_type: type })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.enhanced_image) {
-            alert("✅ Enhancement Successful!");
-            let enhancedImageElement = document.getElementById(frameId + "-enhanced");
-            enhancedImageElement.src = data.enhanced_image;
-            enhancedImageElement.style.display = "block";
-        } else {
-            alert("❌ Enhancement Failed!");
+        function enhanceImage(framePath, type, frameId) {
+            console.log("Original framePath:", framePath);
+            if (framePath.includes("reports/reports/")) {
+                framePath = framePath.replace("reports/reports/", "reports/");
+            }
+            console.log("Corrected framePath:", framePath);
+            fetch('/enhance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ frame_name: framePath, frame_type: type })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.enhanced_image) {
+                    alert("✅ Enhancement Successful!");
+                    let enhancedImageElement = document.getElementById(frameId + "-enhanced");
+                    enhancedImageElement.src = data.enhanced_image;
+                    enhancedImageElement.style.display = "block";
+                } else {
+                    alert("❌ Enhancement Failed!");
+                }
+            })
+            .catch(error => console.error("Error:", error));
         }
-    })
-    .catch(error => console.error("Error:", error));
-}
-
     </script>
-
 </body>
-
 </html>
