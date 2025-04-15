@@ -1,111 +1,163 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Detection Results</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Detection Results</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    .container {
+      width: 80%;
+      max-width: 1000px;
+      background: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+      text-align: center;
+    }
+    .summary {
+      background: #e8f0fe;
+      padding: 10px;
+      border-radius: 5px;
+      margin-bottom: 20px;
+    }
+    .section-title {
+      margin-top: 30px;
+      font-size: 24px;
+      font-weight: bold;
+      color: #333;
+    }
+    .grid-container {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+      margin-top: 20px;
+    }
+    .grid-item {
+      background: #fff;
+      padding: 10px;
+      border-radius: 5px;
+      box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.1);
+    }
+    .grid-item img {
+      width: 100%;
+      border-radius: 5px;
+    }
+    .buttons {
+      margin-top: 20px;
+    }
+    .btn {
+      padding: 10px 15px;
+      background: #007bff;
+      color: white;
+      text-decoration: none;
+      border-radius: 5px;
+      display: inline-block;
+      margin: 5px;
+    }
+    .btn-back {
+      background: #6c757d;
+    }
+    .enhance-button {
+      padding: 8px 12px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+    .enhance-button:hover {
+      background-color: #218838;
+    }
+    .enhanced-img {
+      display: none;
+      margin-top: 10px;
+      width: 100%;
+      border-radius: 5px;
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Detection Results</h1>
-
-        <!-- Summary Section -->
-        <div class="summary">
-            <p><strong>Processed Video:</strong> {{ video_name }}</p>
-            <p><strong>Processed Time:</strong> {{ processed_time }}</p>
-            <p><strong>Anomaly Detected:</strong> {{ "Yes" if "Weapon Detected" in detected_labels or "Violence" in detected_labels else "No" }}</p>
-        </div>
-
-        <!-- Detected Frames Section -->
-        <h2>Detected Anomalies</h2>
-        <div class="grid-container">
-            {% for frame, timestamp, label in frames %}
-            <div class="grid-item">
-                <img src="{{ url_for('static', filename=frame) }}" alt="Detected Frame">
-                <p><strong>{{ label }}</strong></p>
-                <p>Timestamp: {{ timestamp }}</p>
-                
-                <!-- Enhance Image Button -->
-                <form action="{{ url_for('enhance_image') }}" method="POST">
-                    <input type="hidden" name="image_path" value="{{ frame }}">
-                    <button type="submit" class="btn enhance-btn">Enhance Image</button>
-                </form>
-            </div>
-            {% endfor %}
-        </div>
-
-        <!-- Actions -->
-        <div class="buttons">
-            <a href="{{ url_for('upload_video') }}" class="btn">Upload Another Video</a>
-            <button class="btn download-btn">Download Report</button>
-        </div>
+  <div class="container">
+    <h1>Detection Results</h1>
+    <div class="summary">
+      <p><strong>Processed Video:</strong> {{ video_filename }}</p>
+      <p><strong>Anomaly Detected:</strong> {{ anomaly_detected }}</p>
     </div>
 
-    <!-- CSS for styling -->
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            min-height: 100vh;
+    <!-- Weapons Section -->
+    <div class="section">
+      <h2 class="section-title">Weapon Detections</h2>
+      <div class="grid-container">
+        {% for frame, timestamp, label in weapon_frames_with_timestamps %}
+        <div class="grid-item">
+          <img src="{{ url_for('static', filename=frame) }}" alt="Weapon Detection" id="weapon-{{ loop.index }}">
+          <p><strong>{{ label }}</strong></p>
+          <p>Timestamp: {{ timestamp }}</p>
+          <button class="enhance-button" onclick="enhanceImage('{{ frame }}', 'weapon-{{ loop.index }}')">Enhance</button>
+          <img src="" alt="Enhanced Image" id="weapon-{{ loop.index }}-enhanced" class="enhanced-img">
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Violence Section -->
+    <div class="section">
+      <h2 class="section-title">Violence Detections</h2>
+      <div class="grid-container">
+        {% for frame, timestamp, label in violence_frames_with_timestamps %}
+        <div class="grid-item">
+          <img src="{{ url_for('static', filename=frame) }}" alt="Violence Detection" id="violence-{{ loop.index }}">
+          <p><strong>{{ label }}</strong></p>
+          <p>Timestamp: {{ timestamp }}</p>
+          <button class="enhance-button" onclick="enhanceImage('{{ frame }}', 'violence-{{ loop.index }}')">Enhance</button>
+          <img src="" alt="Enhanced Image" id="violence-{{ loop.index }}-enhanced" class="enhanced-img">
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="buttons">
+      <a href="{{ url_for('upload_video') }}" class="btn">Upload Another Video</a>
+      <a href="{{ url_for('dashboard') }}" class="btn btn-back">Back to Dashboard</a>
+    </div>
+    <a href="{{ url_for('download_report', video=video_filename) }}" class="btn btn-primary mt-3">📄 Download Report</a>
+
+  </div>
+
+  <script>
+    function enhanceImage(framePath, elementId) {
+      fetch('/enhance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ frame_name: framePath })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.enhanced_image) {
+          alert("✅ Enhancement Successful!");
+          let enhancedImg = document.getElementById(elementId + "-enhanced");
+          enhancedImg.src = data.enhanced_image;
+          enhancedImg.style.display = "block";
+        } else {
+          alert("❌ Enhancement Failed!");
         }
-        .container {
-            width: 80%;
-            max-width: 800px;
-            background: #fff;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
-            text-align: center;
-        }
-        .summary {
-            background: #e8f0fe;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-        }
-        .grid-container {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-            margin-top: 20px;
-        }
-        .grid-item {
-            background: #fff;
-            padding: 10px;
-            border-radius: 5px;
-            box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.1);
-        }
-        .grid-item img {
-            width: 100%;
-            border-radius: 5px;
-        }
-        .buttons {
-            margin-top: 20px;
-        }
-        .btn {
-            padding: 10px 15px;
-            background: #007bff;
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-            display: inline-block;
-            margin: 5px;
-            border: none;
-            cursor: pointer;
-        }
-        .download-btn {
-            background: #28a745;
-        }
-        .enhance-btn {
-            background: #ff9800;
-        }
-    </style>
+      })
+      .catch(error => {
+        console.error("Error:", error);
+      });
+    }
+  </script>
 </body>
 </html>

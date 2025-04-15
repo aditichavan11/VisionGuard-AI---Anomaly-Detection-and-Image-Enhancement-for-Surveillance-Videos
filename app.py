@@ -12,6 +12,12 @@ from video_processing import process_video
 from srgan_model import enhance_image  # Import the SRGAN function
 from flask import jsonify
 import shutil
+from flask import send_file
+from reportlab.pdfgen import canvas
+import io
+from datetime import datetime
+import os
+
 
 
 
@@ -244,6 +250,10 @@ def generate_report(report_type):
     return render_template("report.html", report_type=report_type, frames_with_timestamps=frames_with_timestamps, no_detection=False)
 
 #for file upload
+import json
+
+import json
+import os
 
 @app.route('/upload_video', methods=['GET', 'POST'])
 def upload_video():
@@ -259,40 +269,63 @@ def upload_video():
         video_path = os.path.join(app.config['UPLOAD_FOLDER'], video_file.filename)
         video_file.save(video_path)
         
-        # Process the video (weapon + violence detection)
-        processed_video_path, detected_frames, timestamps, detected_labels = process_video(video_path)
+        # Process the video using the combined detection pipeline
+        (processed_video_path,
+         weapon_frames, weapon_timestamps, weapon_labels,
+         violence_frames, violence_timestamps, violence_labels) = process_video(video_path)
 
-        # Redirect to results page, passing relevant info
-        return redirect(url_for('show_results', 
+        # Convert lists to comma-separated strings for query parameters.
+        # (For larger data, consider using session or other storage.)
+        return redirect(url_for('show_results',
                                 video_filename=os.path.basename(processed_video_path),
-                                detected_frames=detected_frames,
-                                timestamps=timestamps,
-                                detected_labels=detected_labels))
+                                weapon_frames=','.join(weapon_frames),
+                                weapon_times=','.join(weapon_timestamps),
+                                weapon_labels=','.join(weapon_labels),
+                                violence_frames=','.join(violence_frames),
+                                violence_times=','.join(violence_timestamps),
+                                violence_labels=','.join(violence_labels)
+                                ))
     return render_template('upload_video.html')
 
+
+# ------------------------
+# Updated Results Route
+# ------------------------
 @app.route('/show_results')
 def show_results():
-    """
-    This route receives the processed video filename and the list of 
-    detected frames, timestamps, and labels. Renders them in results.html.
-    """
-    video_filename = request.args.get('video_filename')
-    detected_frames = request.args.getlist('detected_frames')
-    timestamps = request.args.getlist('timestamps')
-    detected_labels = request.args.getlist('detected_labels')
+    video_filename = request.args.get('video_filename', '')
 
-    # Zip them up so we can display them easily
-    frames_with_timestamps = list(zip(detected_frames, timestamps, detected_labels))
+    # Retrieve and split the parameters for weapons
+    weapon_frames = request.args.get('weapon_frames', '').split(',')
+    weapon_times = request.args.get('weapon_times', '').split(',')
+    weapon_labels = request.args.get('weapon_labels', '').split(',')
 
-    return render_template('results.html', 
+    # Retrieve and split the parameters for violence
+    violence_frames = request.args.get('violence_frames', '').split(',')
+    violence_times = request.args.get('violence_times', '').split(',')
+    violence_labels = request.args.get('violence_labels', '').split(',')
+
+    # Zip them for passing to the template
+    weapon_frames_with_timestamps = list(zip(weapon_frames, weapon_times, weapon_labels))
+    violence_frames_with_timestamps = list(zip(violence_frames, violence_times, violence_labels))
+
+    # You may also determine a summary flag if any detections exist
+    anomaly_detected = "Yes" if (weapon_frames_with_timestamps or violence_frames_with_timestamps) else "No"
+
+    return render_template('results.html',
                            video_filename=video_filename,
-                           frames_with_timestamps=frames_with_timestamps)
+                           anomaly_detected=anomaly_detected,
+                           weapon_frames_with_timestamps=weapon_frames_with_timestamps,
+                           violence_frames_with_timestamps=violence_frames_with_timestamps)
 
 
-@app.route('/download/<video_filename>')
-def download_video(video_filename):
-    video_path = os.path.join(app.config['PROCESSED_FOLDER'], video_filename)
-    return send_file(video_path, as_attachment=True)
+
+
+
+# @app.route('/download/<video_filename>')
+# def download_video(video_filename):
+#     video_path = os.path.join(app.config['PROCESSED_FOLDER'], video_filename)
+#     return send_file(video_path, as_attachment=True)
 
 #rout for image enhancement
 
@@ -334,6 +367,80 @@ def enhance():
     enhanced_image_url = f"/{enhanced_image_path.replace('\\', '/')}"
 
     return jsonify({"enhanced_image": enhanced_image_url})
+
+
+from flask import request
+
+@app.route('/download_report')
+def download_report():
+    import glob
+    from reportlab.lib.utils import ImageReader
+
+    # Get video name from query parameter
+    video_filename = request.args.get('video')
+    if not video_filename:
+        return "Video filename is required in query parameter '?video=your_video.mp4'", 400
+
+    video_name_only = os.path.splitext(video_filename)[0]
+    report_folder = f"static/reports/{video_name_only}/"
+
+    # Check if folder exists
+    if not os.path.exists(report_folder):
+        return f"Report folder not found for video: {video_filename}", 404
+
+    # Collect frames
+    violence_frames = sorted(glob.glob(os.path.join(report_folder, "violence_frame_*.jpg")))
+    weapon_frames = sorted(glob.glob(os.path.join(report_folder, "weapon_frame_*.jpg")))
+
+    # Create PDF
+    buffer = io.BytesIO()
+    p = canvas.Canvas(buffer)
+    y = 800
+
+    # Header
+    p.setFont("Helvetica-Bold", 16)
+    p.drawString(100, y, "Surveillance Anomaly Report")
+    y -= 30
+
+    # Info
+    p.setFont("Helvetica", 12)
+    p.drawString(100, y, f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    y -= 20
+    p.drawString(100, y, f"Video: {video_filename}")
+    y -= 20
+    p.drawString(100, y, f"Detected Weapon Frames: {len(weapon_frames)}")
+    y -= 20
+    p.drawString(100, y, f"Detected Violence Frames: {len(violence_frames)}")
+    y -= 30
+
+    # Add frames
+    def add_frames_to_pdf(frames, label):
+        nonlocal y
+        p.setFont("Helvetica-Bold", 14)
+        p.drawString(100, y, label)
+        y -= 20
+        for frame in frames[:4]:  # Max 4
+            if y < 200:
+                p.showPage()
+                y = 800
+            p.drawImage(ImageReader(frame), 100, y - 150, width=200, height=150)
+            p.setFont("Helvetica", 10)
+            p.drawString(100, y - 160, os.path.basename(frame))
+            y -= 180
+
+    if weapon_frames:
+        add_frames_to_pdf(weapon_frames, "Weapon Detection Frames")
+
+    if violence_frames:
+        add_frames_to_pdf(violence_frames, "Violence Detection Frames")
+
+    # Finalize
+    p.showPage()
+    p.save()
+    buffer.seek(0)
+
+    return send_file(buffer, as_attachment=True, download_name=f"{video_name_only}_Report.pdf", mimetype='application/pdf')
+
 
       
 @app.route('/')
